@@ -1,0 +1,13 @@
+<html>
+  <head>
+    <script type="text/javascript" src="socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+      var server = io.connect('http://localhost');
+      server.emit('message', 'Hi there server!');
+
+      server.on('message', function(data) {
+        console.log(data);
+      });
+    </script>
+  </head>
+</html>
