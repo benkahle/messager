@@ -2,13 +2,13 @@ var net = require('net');
 var path = require('path');
 var express = require('express');
 var chatServer = require('chat-server');
+var _ = require('underscore');
 
 var app = express();
 var http = require('http').createServer(app);
-var io = require('socket.io').listen(http);
-var EventEmitter = require('events').EventEmitter;
+var io = require('socket.io');
+var q = require('q');
 
-var emitter = new EventEmitter();
 var args = process.argv.slice(2);
 
 var server = chatServer.createServer({
@@ -19,9 +19,31 @@ var server = chatServer.createServer({
 
 server.start();
 
-// server.on('client connected', function(socket) {
-//   console.log("a client connected");
-// });
+var mgr = chatServer.createManager();
+
+server.on('client connected', function(socket) {
+  var client = chatServer.transformSocket(socket);
+  var dfd = q.defer();
+  client.emit('message', {
+    message: "Hello! Enter password to connect:"
+  });
+
+  client.on('message', function(data) {
+    if (data.message.trim()==='guest 123') {
+      dfd.resolve();
+    }
+  });
+  dfd.promise.then(function() {
+    mgr.add(client);
+    client.broadcast('message', {
+      message: 'Someone connected'
+    });
+  })  
+});
+
+mgr.on('client message', function(data) {
+  data.client.broadcast('message', data.data);
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 http.listen(args[2]);
@@ -42,17 +64,17 @@ http.listen(args[2]);
 //   socket.on('data', function(data) {
 //     console.log("Data from client: " + data);
 //   });
-// });
+// // });
 
-setTimeout(function(){
-  var connection = net.connect(3000, 'localhost', function() {
-    // connection.write("Hi Server");
-    // setInterval(function() {
-    //   connection.write('ping');
-    // }, 2000);
-    // connection.on('data', function(data) {
-    //   console.log("Data from server: " + data);
-    // })
-  });
-},2000)
+// setTimeout(function(){
+//   var connection = net.connect(3000, 'localhost', function() {
+//     connection.write("Hi Server");
+//     // setInterval(function() {
+//     //   connection.write('ping');
+//     // }, 2000);
+//     // connection.on('data', function(data) {
+//     //   console.log("Data from server: " + data);
+//     // })
+//   });
+// },2000)
 

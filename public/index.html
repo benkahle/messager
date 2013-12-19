@@ -1,13 +1,115 @@
 <html>
   <head>
+  <style type="text/css">
+    body {
+      padding: 6px;
+      font-size: 11px;
+    }
+    input, #chat-history {
+      border: 1px solid #ddd;
+      background-color: #fff;
+    }
+    #chat-history {
+      height: 250px;
+      overflow: auto;
+      font-family: 'lucida grande',tahoma,verdana,arial,sans-serif;
+      padding: 15px 15px 0 15px;
+      margin-bottom: 5px;
+    }
+    #chat-history > div {
+      margin: 5px 0px;
+      padding: 5px;
+      cursor: pointer;
+    }
+    #chat-history > div.even {
+      background-color: #eee;
+    }
+    #chat-history > div.own-message {
+      background-color: #b6ff00;
+    }
+  </style>
+    <script type="text/javascript" src="jquery.js"></script>
     <script type="text/javascript" src="socket.io/socket.io.js"></script>
     <script type="text/javascript">
-      var server = io.connect('http://localhost');
-      server.emit('message', 'Hi there server!');
+      window.createChatServer = (function ($) {
+        return function() {
+          var server = null;
+          var chatServer = {
+            init: function(host) {
+              server = io.connect(host || location.href);
+              server.on('message', chatServer.events.onClientMessage);
+              $("#message").keyup( function(e) {
+                if(e.keyCode === 13) {
+                  chatServer.events.onTextboxEnter.apply(this, arguments);
+                }
+              }).focus();
+            },
+            view: {
+              message: function(msg) {
+                return $('<div></div>').addClass('client-message').html(msg).hover(function(){}, function() {
+                  $(this).stop().animate({
+                    'font-size': '11px'
+                  });
+                }).click(function() {
+                  $(this).stop().animate({
+                    'font-size': '14px'
+                  });
+                });
+              }
+            },
+            dom: {
+              appendMessage: function(msg) {
+                var history = $("#chat-history");
+                var message = chatServer.view.message(msg).hide();
+                history.append(message.fadeIn());
+                history.find(".client-message:even").addClass('even');
+                chatServer.controls.scrollHistoryDown();
+                return message;
+              }
+            },
+            controls: {
+              scrollHistoryDown: function() {
+                $("#chat-history").animate({
+                  scrollTop: $("#chat-history").get(0).scrollHeight
+                });
+              }
+            },
+            server: {
+              sendMessage: function(msg) {
+                server.emit('message', {
+                  message: msg
+                });
+              }
+            },
+            events: {
+              onClientMessage: function(data) {
+                if ($.trim(data.message).length === 0) {
+                  return;
+                }
+                chatServer.dom.appendMessage(data.message)
+              },
+              onTextboxEnter: function(e) {
+                var value = $(this).val();
+                if (value.length > 0) {
+                  chatServer.dom.appendMessage(value).addClass('own-message');
+                  chatServer.server.sendMessage(value);
+                  $(this).val('');
+                }
+              }
+            }
+          };
+          chatServer.init.apply(this, arguments);
+          return chatServer;
+        }
+      })(jQuery);
 
-      server.on('message', function(data) {
-        console.log(data);
-      });
+      $(function() {
+        var chatServer = window.createChatServer('')
+      })
     </script>
   </head>
+  <body>
+    <div id="chat-history"></div>
+    <input type="text" id="message" size="50"/>
+  </body>
 </html>
